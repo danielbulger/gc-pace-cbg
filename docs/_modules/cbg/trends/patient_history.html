@@ -1,0 +1,249 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>cbg.trends.patient_history &#8212; CBG  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for cbg.trends.patient_history</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">sqlite3</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">cbg</span> <span class="k">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="k">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">r2_score</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="k">import</span> <span class="n">KNeighborsRegressor</span>
+
+<span class="kn">from</span> <span class="nn">cbg.trends.global_history</span> <span class="k">import</span> <span class="n">get_act_quantile</span>
+
+
+<div class="viewcode-block" id="recurring_patient"><a class="viewcode-back" href="../../cbg.trends.html#cbg.trends.patient_history.recurring_patient">[docs]</a><span class="k">def</span> <span class="nf">recurring_patient</span><span class="p">(</span><span class="n">patientID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">activityID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">date</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return true if patient has had treatment before</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s1">&#39;DATABASE&#39;</span><span class="p">,</span> <span class="s1">&#39;BookingDatabase&#39;</span><span class="p">))</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        SELECT patient_id FROM bookings </span>
+<span class="s2">        WHERE patient_id=? AND activity_id=? AND booking_datetime &lt; ?&quot;&quot;&quot;</span><span class="p">,</span>
+                                     <span class="p">[</span><span class="n">patientID</span><span class="p">,</span> <span class="n">activityID</span><span class="p">,</span> <span class="n">date</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchone</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="predict_nearest_neighbor"><a class="viewcode-back" href="../../cbg.trends.html#cbg.trends.patient_history.predict_nearest_neighbor">[docs]</a><span class="k">def</span> <span class="nf">predict_nearest_neighbor</span><span class="p">(</span><span class="n">patientID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">activityID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">date</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">show_chart</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">validate_model</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">noRows</span> <span class="o">=</span> <span class="n">no_patient_rows</span><span class="p">(</span><span class="n">patientID</span><span class="p">,</span> <span class="n">activityID</span><span class="p">,</span> <span class="n">date</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s1">&#39;DATABASE&#39;</span><span class="p">,</span> <span class="s1">&#39;BookingDatabase&#39;</span><span class="p">))</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+            <span class="s2">&quot;SELECT treatment_time FROM bookings &quot;</span>
+            <span class="s2">&quot;WHERE treatment_time &gt; 0 AND patient_id = ? AND activity_id=? AND booking_datetime &lt; ?&quot;</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">patientID</span><span class="p">,</span> <span class="n">activityID</span><span class="p">,</span> <span class="n">date</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+            <span class="n">x</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Number&#39;</span><span class="p">,</span> <span class="s1">&#39;TreatmentTime&#39;</span><span class="p">])</span>
+        <span class="n">quantile</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s2">&quot;TreatmentTime&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.997</span><span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="n">frame</span><span class="p">[</span><span class="s2">&quot;TreatmentTime&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">quantile</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># If after removing the outliers there are not enough to run the NN algorithm, we need a fallback.</span>
+            <span class="k">return</span> <span class="n">get_act_quantile</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">activityID</span><span class="p">)</span>
+
+        <span class="n">datasetX</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;Number&#39;</span><span class="p">]</span>
+        <span class="n">datasetY</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;TreatmentTime&#39;</span><span class="p">]</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{datasetY}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">validate_model</span><span class="p">:</span>
+            <span class="n">twentyPC</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">noRows</span> <span class="o">*</span> <span class="mf">0.2</span><span class="p">)</span>
+
+            <span class="c1"># Split the treatment numbers into training/testing sets</span>
+            <span class="n">datasetX_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">datasetX</span><span class="p">[:</span><span class="o">-</span><span class="n">twentyPC</span><span class="p">])</span>
+            <span class="n">datasetX_test</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">datasetX</span><span class="p">[</span><span class="o">-</span><span class="n">twentyPC</span><span class="p">:])</span>
+
+            <span class="c1"># Split the treatment durations into training/testing sets</span>
+            <span class="n">datasetY_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">datasetY</span><span class="p">[:</span><span class="o">-</span><span class="n">twentyPC</span><span class="p">])</span>
+            <span class="n">datasetY_test</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">datasetY</span><span class="p">[</span><span class="o">-</span><span class="n">twentyPC</span><span class="p">:])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">datasetX_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">datasetX</span><span class="p">)</span>
+            <span class="n">datasetY_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">datasetY</span><span class="p">)</span>
+
+        <span class="c1"># Create linear regression object</span>
+        <span class="n">regr</span> <span class="o">=</span> <span class="n">KNeighborsRegressor</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="s1">&#39;distance&#39;</span><span class="p">)</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;DataSets: </span><span class="si">{datasetX}</span><span class="s2"> </span><span class="si">{datasetY}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">)</span>
+        <span class="c1"># Train the model using the training sets</span>
+        <span class="n">regr</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">datasetX_train</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">datasetY_train</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">validate_model</span><span class="p">:</span>
+            <span class="c1"># Make predictions using the testing set</span>
+            <span class="n">datasetY_pred</span> <span class="o">=</span> <span class="n">regr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">datasetX_test</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">datasetY_pred</span><span class="p">)</span>
+
+            <span class="c1"># The coefficients</span>
+            <span class="c1"># print(&#39;Coefficients: \n&#39;, regr.coef_)</span>
+            <span class="c1"># The mean squared error</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Mean squared error: </span><span class="si">%.2f</span><span class="s2">&quot;</span>
+                         <span class="o">%</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">datasetY_test</span><span class="p">,</span> <span class="n">datasetY_pred</span><span class="p">))</span>
+            <span class="c1"># Explained variance score: 1 is perfect prediction</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Variance score: </span><span class="si">%.2f</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">datasetY_test</span><span class="p">,</span> <span class="n">datasetY_pred</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">show_chart</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">datasetX_train</span><span class="p">,</span> <span class="n">datasetY_train</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Actual treatment duration&#39;</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">datasetX_test</span><span class="p">,</span> <span class="n">datasetY_test</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                            <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Actual test treatment duration&#39;</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">datasetX_train</span><span class="p">,</span> <span class="n">regr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">datasetX_train</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">datasetX_test</span><span class="p">,</span> <span class="n">datasetY_pred</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                         <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Predicted test treatment duration&#39;</span><span class="p">)</span>
+
+                <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Patient ID: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">patientID</span><span class="p">))</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Treatment number (sequential order)&quot;</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Treatment duration (minutes)&quot;</span><span class="p">)</span>
+
+                <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">datasetX</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">yticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+        <span class="c1"># Predict the next appointment time.</span>
+        <span class="k">return</span> <span class="n">regr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="no_patient_rows"><a class="viewcode-back" href="../../cbg.trends.html#cbg.trends.patient_history.no_patient_rows">[docs]</a><span class="k">def</span> <span class="nf">no_patient_rows</span><span class="p">(</span><span class="n">patientID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">activityID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">date</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the amount of treatments a patient has had for an activity</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s1">&#39;DATABASE&#39;</span><span class="p">,</span> <span class="s1">&#39;BookingDatabase&#39;</span><span class="p">))</span> <span class="k">as</span> <span class="n">db</span><span class="p">:</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+            <span class="s2">&quot;SELECT COUNT(treatment_time) FROM bookings &quot;</span>
+            <span class="s2">&quot;WHERE treatment_time &gt; 0 AND patient_id = ? AND activity_id=? AND booking_datetime &lt; ?&quot;</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">patientID</span><span class="p">,</span> <span class="n">activityID</span><span class="p">,</span> <span class="n">date</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="predict_next_duration"><a class="viewcode-back" href="../../cbg.trends.html#cbg.trends.patient_history.predict_next_duration">[docs]</a><span class="k">def</span> <span class="nf">predict_next_duration</span><span class="p">(</span><span class="n">patientID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">activityID</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">date</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Predict next appointment duration</span>
+<span class="sd">    Could just get treatment code from bookings table also</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">globalLimit</span> <span class="o">=</span> <span class="mi">3</span>
+
+    <span class="k">if</span> <span class="n">date</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">date</span> <span class="o">=</span> <span class="s1">&#39;2099-12-31&#39;</span>
+
+    <span class="k">if</span> <span class="n">recurring_patient</span><span class="p">(</span><span class="n">patientID</span><span class="p">,</span> <span class="n">activityID</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+        <span class="n">noRows</span> <span class="o">=</span> <span class="n">no_patient_rows</span><span class="p">(</span><span class="n">patientID</span><span class="p">,</span> <span class="n">activityID</span><span class="p">,</span> <span class="n">date</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">noRows</span> <span class="o">&lt;</span> <span class="n">globalLimit</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">get_act_quantile</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">activityID</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">predict_nearest_neighbor</span><span class="p">(</span><span class="n">patientID</span><span class="p">,</span> <span class="n">activityID</span><span class="p">,</span> <span class="n">date</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">get_act_quantile</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">activityID</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">CBG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, PACE Group 6.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

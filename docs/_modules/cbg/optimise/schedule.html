@@ -1,0 +1,292 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>cbg.optimise.schedule &#8212; CBG  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for cbg.optimise.schedule</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">array</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">List</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span>
+
+<span class="kn">from</span> <span class="nn">cbg</span> <span class="k">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">deap</span> <span class="k">import</span> <span class="n">algorithms</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">creator</span><span class="p">,</span> <span class="n">tools</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">namedtuple</span>
+
+<span class="kn">from</span> <span class="nn">cbg.location</span> <span class="k">import</span> <span class="n">Location</span>
+<span class="kn">from</span> <span class="nn">cbg.patients</span> <span class="k">import</span> <span class="n">Patient</span>
+
+<span class="n">OptimiseConfig</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;OptimiseConfig&#39;</span><span class="p">,</span> <span class="p">[</span>
+    <span class="c1"># The probability of 2 individuals mating.</span>
+    <span class="s1">&#39;mate_prob&#39;</span><span class="p">,</span>
+    <span class="c1"># The number of generations to run through.</span>
+    <span class="s1">&#39;num_generations&#39;</span><span class="p">,</span>
+    <span class="c1"># The probability an individual will be mutated</span>
+    <span class="s1">&#39;mutate_prob&#39;</span><span class="p">,</span>
+    <span class="c1"># The probability that an individual&#39;s gene will be mutated</span>
+    <span class="s1">&#39;mutate_bit_prob&#39;</span><span class="p">,</span>
+    <span class="c1"># The total size of the tournament.</span>
+    <span class="s1">&#39;tourn_size&#39;</span><span class="p">,</span>
+    <span class="c1"># The number of individuals in each population.</span>
+    <span class="s1">&#39;population_size&#39;</span><span class="p">,</span>
+    <span class="c1"># Whether eaSimple should be verbose in the logging or not.</span>
+    <span class="s1">&#39;verbose&#39;</span>
+<span class="p">])</span>
+
+
+<div class="viewcode-block" id="get_optimise_config"><a class="viewcode-back" href="../../cbg.optimise.html#cbg.optimise.schedule.get_optimise_config">[docs]</a><span class="k">def</span> <span class="nf">get_optimise_config</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads the optimiser config as a OptimiseConfig object.</span>
+<span class="sd">    :return: The resulting OptimiseConfig.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">OptimiseConfig</span><span class="p">(</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">get_float</span><span class="p">(</span><span class="s1">&#39;GA&#39;</span><span class="p">,</span> <span class="s1">&#39;MateProb&#39;</span><span class="p">),</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">get_int</span><span class="p">(</span><span class="s1">&#39;GA&#39;</span><span class="p">,</span> <span class="s1">&#39;NumGenerations&#39;</span><span class="p">),</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">get_float</span><span class="p">(</span><span class="s1">&#39;GA&#39;</span><span class="p">,</span> <span class="s1">&#39;MutateProb&#39;</span><span class="p">),</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">get_float</span><span class="p">(</span><span class="s1">&#39;GA&#39;</span><span class="p">,</span> <span class="s1">&#39;MutateBitProb&#39;</span><span class="p">),</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">get_int</span><span class="p">(</span><span class="s1">&#39;GA&#39;</span><span class="p">,</span> <span class="s1">&#39;TournSize&#39;</span><span class="p">),</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">get_int</span><span class="p">(</span><span class="s1">&#39;GA&#39;</span><span class="p">,</span> <span class="s1">&#39;PopulationSize&#39;</span><span class="p">),</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">get_bool</span><span class="p">(</span><span class="s1">&#39;GA&#39;</span><span class="p">,</span> <span class="s1">&#39;Verbose&#39;</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+
+<span class="n">creator</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="s1">&#39;FitnessMin&#39;</span><span class="p">,</span>
+    <span class="n">base</span><span class="o">.</span><span class="n">Fitness</span><span class="p">,</span>
+    <span class="n">weights</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,)</span>
+<span class="p">)</span>
+
+<span class="n">creator</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+    <span class="s1">&#39;Individual&#39;</span><span class="p">,</span>
+    <span class="n">array</span><span class="o">.</span><span class="n">array</span><span class="p">,</span>
+    <span class="n">typecode</span><span class="o">=</span><span class="s1">&#39;i&#39;</span><span class="p">,</span>
+    <span class="n">fitness</span><span class="o">=</span><span class="n">creator</span><span class="o">.</span><span class="n">FitnessMin</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="optimise_location_schedules"><a class="viewcode-back" href="../../cbg.optimise.html#cbg.optimise.schedule.optimise_location_schedules">[docs]</a><span class="k">def</span> <span class="nf">optimise_location_schedules</span><span class="p">(</span><span class="n">locations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Location</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Patient</span><span class="p">]]:</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">location</span> <span class="ow">in</span> <span class="n">locations</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">schedule</span> <span class="ow">in</span> <span class="n">location</span><span class="o">.</span><span class="n">get_schedules</span><span class="p">():</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">schedule</span><span class="o">.</span><span class="n">has_patients</span><span class="p">():</span>
+                <span class="c1"># If the schedule doesn&#39;t have any time available, not having patients assigned it not an issue.</span>
+                <span class="c1"># Otherwise, this needs to flagged as it may indicate an issue with the algorithm</span>
+                <span class="k">if</span> <span class="n">schedule</span><span class="o">.</span><span class="n">has_available_time</span><span class="p">():</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;LocationSchedule[</span><span class="si">{schedule}</span><span class="s2">] does not have any patients assigned&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">best</span> <span class="o">=</span> <span class="n">schedule</span><span class="o">.</span><span class="n">get_patients</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">schedule</span><span class="o">.</span><span class="n">get_patients</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">optimise_schedule</span><span class="p">(</span><span class="n">schedule</span><span class="p">)</span>
+
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+            <span class="c1"># Not enough to optimise.</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">schedule</span><span class="o">.</span><span class="n">get_patients</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Not enough patients to optimise </span><span class="si">{schedule}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="c1"># Ensure that all patients have been scheduled and none has been missed out in the optimisation process.</span>
+            <span class="k">assert</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">schedule</span><span class="o">.</span><span class="n">get_patients</span><span class="p">()))</span>
+
+            <span class="c1"># Reorder the Location Schedule based on the newly optimised one.</span>
+            <span class="n">schedule</span><span class="o">.</span><span class="n">reorder_time_slots</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">outputs</span></div>
+
+
+<div class="viewcode-block" id="optimise_schedule"><a class="viewcode-back" href="../../cbg.optimise.html#cbg.optimise.schedule.optimise_schedule">[docs]</a><span class="k">def</span> <span class="nf">optimise_schedule</span><span class="p">(</span><span class="n">schedule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Patient</span><span class="p">]:</span>
+    <span class="n">patients</span> <span class="o">=</span> <span class="n">schedule</span><span class="o">.</span><span class="n">get_patients</span><span class="p">()</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">get_optimise_config</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">create_schedule</span><span class="p">(</span><span class="n">individual</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converts an individual into a LocationSchedule.</span>
+<span class="sd">        :param individual: The individual to convert.</span>
+<span class="sd">        :return: The List of patients in the Schedule order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">patients</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">individual</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_evaluate</span><span class="p">(</span><span class="n">individual</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Determines the cost of the individual.</span>
+<span class="sd">        Currently, this based on how much machine calibrations will be required through the day.</span>
+<span class="sd">        :param individual: The individual schedule to evaluate.</span>
+<span class="sd">        :return: The weighted cost of the individual.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">this_schedule</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span><span class="n">individual</span><span class="p">)</span>
+
+        <span class="n">previous</span> <span class="o">=</span> <span class="n">this_schedule</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;activity&#39;</span><span class="p">]</span>
+        <span class="n">changes</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">encoding</span> <span class="ow">in</span> <span class="n">this_schedule</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+
+            <span class="n">activity</span> <span class="o">=</span> <span class="n">encoding</span><span class="p">[</span><span class="s1">&#39;activity&#39;</span><span class="p">]</span>
+
+            <span class="c1"># For now a better schedule is defined by how few machine calibrations are required.</span>
+            <span class="k">if</span> <span class="n">activity</span> <span class="o">!=</span> <span class="n">previous</span><span class="p">:</span>
+                <span class="n">changes</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">previous</span> <span class="o">=</span> <span class="n">activity</span>
+
+        <span class="c1"># Return a tuple, don&#39;t remove the trailing command it is required.</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">changes</span><span class="p">),</span>
+
+    <span class="k">def</span> <span class="nf">find_best_schedule</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Runs a genetic algorithm on the LocationSchedule.</span>
+<span class="sd">        :return: The final, most optimal schedule.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">toolbox</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">Toolbox</span><span class="p">()</span>
+        <span class="n">toolbox</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+            <span class="s1">&#39;indices&#39;</span><span class="p">,</span>
+            <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">permutation</span><span class="p">,</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">patients</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">toolbox</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+            <span class="s1">&#39;individual&#39;</span><span class="p">,</span>
+            <span class="n">tools</span><span class="o">.</span><span class="n">initIterate</span><span class="p">,</span>
+            <span class="n">creator</span><span class="o">.</span><span class="n">Individual</span><span class="p">,</span>
+            <span class="n">toolbox</span><span class="o">.</span><span class="n">indices</span>
+        <span class="p">)</span>
+
+        <span class="n">toolbox</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+            <span class="s1">&#39;population&#39;</span><span class="p">,</span>
+            <span class="n">tools</span><span class="o">.</span><span class="n">initRepeat</span><span class="p">,</span>
+            <span class="nb">list</span><span class="p">,</span>
+            <span class="n">toolbox</span><span class="o">.</span><span class="n">individual</span>
+        <span class="p">)</span>
+
+        <span class="n">toolbox</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;evaluate&#39;</span><span class="p">,</span> <span class="n">_evaluate</span><span class="p">)</span>
+        <span class="n">toolbox</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;mate&#39;</span><span class="p">,</span> <span class="n">tools</span><span class="o">.</span><span class="n">cxOrdered</span><span class="p">)</span>
+
+        <span class="n">toolbox</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+            <span class="s1">&#39;mutate&#39;</span><span class="p">,</span>
+            <span class="n">tools</span><span class="o">.</span><span class="n">mutShuffleIndexes</span><span class="p">,</span>
+            <span class="n">indpb</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;mutate_bit_prob&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">toolbox</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+            <span class="s1">&#39;select&#39;</span><span class="p">,</span>
+            <span class="n">tools</span><span class="o">.</span><span class="n">selTournament</span><span class="p">,</span>
+            <span class="n">tournsize</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;tourn_size&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">fame</span> <span class="o">=</span> <span class="n">tools</span><span class="o">.</span><span class="n">HallOfFame</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">pop</span> <span class="o">=</span> <span class="n">toolbox</span><span class="o">.</span><span class="n">population</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;population_size&#39;</span><span class="p">))</span>
+
+        <span class="n">fit_stats</span> <span class="o">=</span> <span class="n">tools</span><span class="o">.</span><span class="n">Statistics</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">&#39;fitness.values&#39;</span><span class="p">))</span>
+        <span class="n">fit_stats</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">mean</span><span class="p">)</span>
+        <span class="n">fit_stats</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;min&#39;</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">min</span><span class="p">)</span>
+        <span class="n">fit_stats</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;std&#39;</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">std</span><span class="p">)</span>
+
+        <span class="n">algorithms</span><span class="o">.</span><span class="n">eaSimple</span><span class="p">(</span>
+            <span class="n">pop</span><span class="p">,</span>
+            <span class="n">toolbox</span><span class="p">,</span>
+            <span class="n">cxpb</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;mate_prob&#39;</span><span class="p">),</span>
+            <span class="n">mutpb</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;mutate_prob&#39;</span><span class="p">),</span>
+            <span class="n">ngen</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;num_generations&#39;</span><span class="p">),</span>
+            <span class="n">halloffame</span><span class="o">=</span><span class="n">fame</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;verbose&#39;</span><span class="p">),</span>
+            <span class="n">stats</span><span class="o">=</span><span class="n">fit_stats</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">create_schedule</span><span class="p">(</span><span class="n">fame</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">find_best_schedule</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">CBG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, PACE Group 6.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

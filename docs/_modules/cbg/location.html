@@ -1,0 +1,480 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>cbg.location &#8212; CBG  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for cbg.location</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span> <span class="k">as</span> <span class="nn">dt</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span> <span class="nn">cbg</span> <span class="k">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">cbg.patients</span> <span class="k">import</span> <span class="n">Patient</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="k">import</span> <span class="n">Enum</span>
+
+<span class="n">_day_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sunday&#39;</span><span class="p">,</span> <span class="s1">&#39;monday&#39;</span><span class="p">,</span> <span class="s1">&#39;tuesday&#39;</span><span class="p">,</span> <span class="s1">&#39;wednesday&#39;</span><span class="p">,</span> <span class="s1">&#39;thursday&#39;</span><span class="p">,</span> <span class="s1">&#39;friday&#39;</span><span class="p">,</span> <span class="s1">&#39;saturday&#39;</span><span class="p">]</span>
+<span class="n">_time_slot_interval</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1"># For determining patient preferences, define what the midday day-part is here.</span>
+<span class="n">_midday_start_time</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">time</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">_midday_end_time</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">time</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="mi">59</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">59</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_time_slot_interval</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gets the amount of minutes that each time-slot should run for.</span>
+<span class="sd">    :return: The time-slot duration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_time_slot_interval</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_time_slot_interval</span><span class="p">:</span>
+        <span class="n">_time_slot_interval</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get_int</span><span class="p">(</span><span class="s1">&#39;SCHEDULE&#39;</span><span class="p">,</span> <span class="s1">&#39;TimeslotInterval&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_time_slot_interval</span>
+
+
+<div class="viewcode-block" id="DayPart"><a class="viewcode-back" href="../cbg.html#cbg.location.DayPart">[docs]</a><span class="k">class</span> <span class="nc">DayPart</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">MORNING</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">MIDDAY</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">AFTERNOON</span> <span class="o">=</span> <span class="mi">3</span></div>
+
+
+<div class="viewcode-block" id="LocationSchedule"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule">[docs]</a><span class="k">class</span> <span class="nc">LocationSchedule</span><span class="p">:</span>
+
+<div class="viewcode-block" id="LocationSchedule.get_time_slot_day_part"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_time_slot_day_part">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_time_slot_day_part</span><span class="p">(</span><span class="n">time_slot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DayPart</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">time_slot</span><span class="p">[</span><span class="s1">&#39;slot&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">_midday_start_time</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">DayPart</span><span class="o">.</span><span class="n">MORNING</span>
+        <span class="k">if</span> <span class="n">time_slot</span><span class="p">[</span><span class="s1">&#39;slot&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">_midday_end_time</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">DayPart</span><span class="o">.</span><span class="n">AFTERNOON</span>
+        <span class="k">return</span> <span class="n">DayPart</span><span class="o">.</span><span class="n">MIDDAY</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_required_slots</span><span class="p">(</span><span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;estimated_time&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">_get_time_slot_interval</span><span class="p">())</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_time_slots</span><span class="p">(</span><span class="n">open_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">close_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="k">if</span> <span class="n">open_str</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">close_str</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">minutes</span> <span class="o">=</span> <span class="n">LocationSchedule</span><span class="o">.</span><span class="n">_get_total_minutes_open</span><span class="p">(</span><span class="n">open_str</span><span class="p">,</span> <span class="n">close_str</span><span class="p">)</span>
+        <span class="n">num_slots</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">minutes</span> <span class="o">/</span> <span class="n">_get_time_slot_interval</span><span class="p">())</span>
+
+        <span class="n">open_time</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">open_str</span><span class="p">,</span> <span class="s2">&quot;%H:%M&quot;</span><span class="p">)</span>
+
+        <span class="n">slots</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">current_time</span> <span class="o">=</span> <span class="n">open_time</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_slots</span><span class="p">):</span>
+            <span class="n">slots</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;slot&#39;</span><span class="p">:</span> <span class="n">current_time</span><span class="o">.</span><span class="n">time</span><span class="p">(),</span>
+                <span class="s1">&#39;patient&#39;</span><span class="p">:</span> <span class="kc">None</span>
+            <span class="p">})</span>
+            <span class="n">current_time</span> <span class="o">=</span> <span class="n">current_time</span> <span class="o">+</span> <span class="n">dt</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">_get_time_slot_interval</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">slots</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_total_minutes_open</span><span class="p">(</span><span class="n">open_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">close_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the number of minutes between the closing and opening time.</span>
+<span class="sd">        :param open_str: The opening time formatted as HH:MM in 24 hour time.</span>
+<span class="sd">        :param close_str: The closing time formatted as HH:MM in 24 hour time.</span>
+<span class="sd">        :return: The number of minutes between.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">open_str</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">close_str</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+
+        <span class="n">close_time</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">close_str</span><span class="p">,</span> <span class="s2">&quot;%H:%M&quot;</span><span class="p">)</span>
+        <span class="n">open_time</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">open_str</span><span class="p">,</span> <span class="s2">&quot;%H:%M&quot;</span><span class="p">)</span>
+
+        <span class="n">difference</span> <span class="o">=</span> <span class="n">close_time</span> <span class="o">-</span> <span class="n">open_time</span>
+
+        <span class="n">minutes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">difference</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">60</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">minutes</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="n">minutes</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">day</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">open_time</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">close_time</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Represents a single daily schedule for a machine.</span>
+<span class="sd">        :param location_id: The id of the location that this schedule is for.</span>
+<span class="sd">        :param day: The day of the week identifier for this schedule.</span>
+<span class="sd">        :param open_time: The time of the day formatted as HH:MM in 24 hour time that the location schedule opens.</span>
+<span class="sd">        :param close_time: The time of the day formatted as HH:MM in 24 hour time that the location schedule closes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">location_id</span> <span class="o">=</span> <span class="n">location_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">day</span> <span class="o">=</span> <span class="n">day</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">open_time</span> <span class="o">=</span> <span class="n">open_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">close_time</span> <span class="o">=</span> <span class="n">close_time</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_slots</span><span class="p">(</span><span class="n">open_time</span><span class="p">,</span> <span class="n">close_time</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patients</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="LocationSchedule.get_percent_assigned"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_percent_assigned">[docs]</a>    <span class="k">def</span> <span class="nf">get_percent_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculates how much of this schedule has already been allocated.</span>
+<span class="sd">        :return: A percentage (between 0 and 1) that has been allocated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+
+        <span class="n">assigned</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">time_slot</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">time_slot</span><span class="p">[</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">assigned</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">assigned</span> <span class="o">/</span> <span class="n">total</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.reorder_time_slots"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.reorder_time_slots">[docs]</a>    <span class="k">def</span> <span class="nf">reorder_time_slots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_patients</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Updates the existing time slots and patients with the ones given.</span>
+<span class="sd">        :param new_patients: The patients (sorted by appointment time in ascending order) to update with.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patients</span> <span class="o">=</span> <span class="n">new_patients</span>
+
+        <span class="c1"># Clear all the patients from the current time slots.</span>
+        <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">:</span>
+            <span class="n">slot</span><span class="p">[</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">last_slot</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Reassign the time slots here.</span>
+        <span class="k">for</span> <span class="n">patient</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">patients</span><span class="p">:</span>
+            <span class="n">required_slots</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_required_slots</span><span class="p">(</span><span class="n">patient</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">required_slots</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">[</span><span class="n">last_slot</span><span class="p">][</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">patient</span>
+                <span class="n">last_slot</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.get_time_slots"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_time_slots">[docs]</a>    <span class="k">def</span> <span class="nf">get_time_slots</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the time slots for this Schedule.</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.get_open_time"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_open_time">[docs]</a>    <span class="k">def</span> <span class="nf">get_open_time</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the time that this Schedule opens at.</span>
+<span class="sd">        :return: The time formatted as HH:MM.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">open_time</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.get_close_time"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_close_time">[docs]</a>    <span class="k">def</span> <span class="nf">get_close_time</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the time that this Schedule closes at.</span>
+<span class="sd">        :return: The time formatted as HH:MM.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_time</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.schedule_time_slot"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.schedule_time_slot">[docs]</a>    <span class="k">def</span> <span class="nf">schedule_time_slot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">,</span> <span class="n">time_slot</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets a patient into the given time slot.</span>
+<span class="sd">        :param patient: The patient to schedule.</span>
+<span class="sd">        :param time_slot: The time-slot to schedule into.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span><span class="p">(</span><span class="n">patient</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">time_slot</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.schedule"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.schedule">[docs]</a>    <span class="k">def</span> <span class="nf">schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Schedules the given patient to this schedule.</span>
+<span class="sd">        :param patient: The patient to schedule.</span>
+<span class="sd">        :param index: The starting time-slot to schedule the Patient into.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">patients</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">patient</span><span class="p">)</span>
+        <span class="n">slots_required</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_required_slots</span><span class="p">(</span><span class="n">patient</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slots_required</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="n">x</span><span class="p">][</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">patient</span></div>
+
+    <span class="k">def</span> <span class="nf">_look_forward_time_slots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_slots</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">start_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Looks ahead `num_slots` and checks if there are any patients assigned to those positions.</span>
+<span class="sd">        :param num_slots: The number of time slots to look ahead.</span>
+<span class="sd">        :param start_index: The index of the starting time slot.</span>
+<span class="sd">        :return: True if all the time slots are clear of patients, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_slots</span><span class="p">):</span>
+
+            <span class="c1"># Not enough time-slots available to schedule.</span>
+            <span class="k">if</span> <span class="n">start_index</span> <span class="o">+</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+            <span class="c1"># Someone has already been assigned to this position, can&#39;t double up on this machine.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">[</span><span class="n">start_index</span> <span class="o">+</span> <span class="n">x</span><span class="p">][</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># All the required slots are free!</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="LocationSchedule.is_patient_already_scheduled"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.is_patient_already_scheduled">[docs]</a>    <span class="k">def</span> <span class="nf">is_patient_already_scheduled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Checks if the given patient has already been previously assigned to this schedule.</span>
+<span class="sd">        :param patient: The patient to check.</span>
+<span class="sd">        :return: True if the patient has a previous appointment, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">patients</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">other</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">patient</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.can_schedule_time_slot"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.can_schedule_time_slot">[docs]</a>    <span class="k">def</span> <span class="nf">can_schedule_time_slot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">,</span> <span class="n">time_slot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Checks whether the patient can be scheduled into the desired time-slot.</span>
+<span class="sd">        :param patient: The patient to schedule.</span>
+<span class="sd">        :param time_slot: The time-slot to check.</span>
+<span class="sd">        :return: True if there are no issues scheduling for the time-slot, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_patient_already_scheduled</span><span class="p">(</span><span class="n">patient</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">time_slot</span><span class="p">[</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">slots_required</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_required_slots</span><span class="p">(</span><span class="n">patient</span><span class="p">)</span>
+
+        <span class="n">start_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">time_slot</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_look_forward_time_slots</span><span class="p">(</span><span class="n">slots_required</span><span class="p">,</span> <span class="n">start_index</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.can_schedule"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.can_schedule">[docs]</a>    <span class="k">def</span> <span class="nf">can_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Checks whether the patient can be scheduled.</span>
+<span class="sd">        :param patient: The patient to schedule.</span>
+<span class="sd">        :return: True if there is enough time available to schedule, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># For now don&#39;t schedule a patient on the same day as an existing treatment.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_patient_already_scheduled</span><span class="p">(</span><span class="n">patient</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="n">slots_required</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_required_slots</span><span class="p">(</span><span class="n">patient</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">slot</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">):</span>
+
+            <span class="c1"># Find the next empty slot and check the next `n` slots to see if they are available</span>
+            <span class="k">if</span> <span class="n">slot</span><span class="p">[</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_look_forward_time_slots</span><span class="p">(</span><span class="n">slots_required</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">index</span>
+
+        <span class="c1"># Not enough unallocated slots have been found. We can&#39;t schedule this patient here.</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.has_available_time"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.has_available_time">[docs]</a>    <span class="k">def</span> <span class="nf">has_available_time</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if this LocationSchedule has any time allocated to it.</span>
+<span class="sd">        :return: True if there is at least one time slot for the day, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_slots</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.get_patients"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_patients">[docs]</a>    <span class="k">def</span> <span class="nf">get_patients</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the list of patients that have been scheduled to this location.</span>
+<span class="sd">        :return: The list of patients.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patients</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.has_patients"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.has_patients">[docs]</a>    <span class="k">def</span> <span class="nf">has_patients</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check whether the schedule has any patients assigned.</span>
+<span class="sd">        :return: True if there are any patients in the list, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">patients</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.get_location_id"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_location_id">[docs]</a>    <span class="k">def</span> <span class="nf">get_location_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the location id for this schedule.</span>
+<span class="sd">        :return: The location id.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">location_id</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.get_day"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_day">[docs]</a>    <span class="k">def</span> <span class="nf">get_day</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the day identifier for the schedule, where 0=Sunday, 1=Monday..., Saturday=6</span>
+<span class="sd">        :return: The day identifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">day</span></div>
+
+<div class="viewcode-block" id="LocationSchedule.get_day_name"><a class="viewcode-back" href="../cbg.html#cbg.location.LocationSchedule.get_day_name">[docs]</a>    <span class="k">def</span> <span class="nf">get_day_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the name of the day this schedule represents.</span>
+<span class="sd">        :return: The day name as a string.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_day_names</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">day</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;LocationSchedule[day=</span><span class="si">{}</span><span class="s2">, location=</span><span class="si">{}</span><span class="s2">]&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">day</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">location_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Location"><a class="viewcode-back" href="../cbg.html#cbg.location.Location">[docs]</a><span class="k">class</span> <span class="nc">Location</span><span class="p">:</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_make_schedule</span><span class="p">(</span><span class="n">location_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">open_hours</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">LocationSchedule</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets a List of schedules from the given opening hours for a Location.</span>
+<span class="sd">        :param location_id: The location to make the schedules for.</span>
+<span class="sd">        :param open_hours: The opening hours of the Schedule.</span>
+<span class="sd">        :return: A List of Schedules.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">schedules</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">day</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_day_names</span><span class="p">):</span>
+            <span class="n">day</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">open_name</span> <span class="o">=</span> <span class="n">day</span> <span class="o">+</span> <span class="s2">&quot;_open&quot;</span>
+            <span class="n">close_name</span> <span class="o">=</span> <span class="n">day</span> <span class="o">+</span> <span class="s2">&quot;_close&quot;</span>
+
+            <span class="n">schedules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LocationSchedule</span><span class="p">(</span><span class="n">location_id</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">open_hours</span><span class="p">[</span><span class="n">open_name</span><span class="p">],</span> <span class="n">open_hours</span><span class="p">[</span><span class="n">close_name</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">schedules</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">department</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">activities</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">open_hours</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param location_id: The unique id of this location.</span>
+<span class="sd">        :param name: The given name of this location.</span>
+<span class="sd">        :param department: The department id (as an integer) that this location is in.</span>
+<span class="sd">        :param activities: A list of activities that are actionable by this location.</span>
+<span class="sd">        :param open_hours: A dictionary that contains the opening and closing hours for a weeks Schedule.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">location_id</span> <span class="o">=</span> <span class="n">location_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">department</span> <span class="o">=</span> <span class="n">department</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activities</span> <span class="o">=</span> <span class="n">activities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">schedules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_schedule</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location_id</span><span class="p">,</span> <span class="n">open_hours</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Location.get_location_id"><a class="viewcode-back" href="../cbg.html#cbg.location.Location.get_location_id">[docs]</a>    <span class="k">def</span> <span class="nf">get_location_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">location_id</span></div>
+
+<div class="viewcode-block" id="Location.get_allowed_activities"><a class="viewcode-back" href="../cbg.html#cbg.location.Location.get_allowed_activities">[docs]</a>    <span class="k">def</span> <span class="nf">get_allowed_activities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets all the activities that are able to be actioned by this location.</span>
+<span class="sd">        :return: A list of the activity ids.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">activities</span></div>
+
+<div class="viewcode-block" id="Location.is_allowed"><a class="viewcode-back" href="../cbg.html#cbg.location.Location.is_allowed">[docs]</a>    <span class="k">def</span> <span class="nf">is_allowed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">activity_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Checks if the given activity is actioned by this location.</span>
+<span class="sd">        :param activity_id: The activity database id to check.</span>
+<span class="sd">        :return: True if the activity id is in the list of ids, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">activity_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">activities</span></div>
+
+<div class="viewcode-block" id="Location.get_schedule"><a class="viewcode-back" href="../cbg.html#cbg.location.Location.get_schedule">[docs]</a>    <span class="k">def</span> <span class="nf">get_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">day</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LocationSchedule</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets a LocationSchedule by a day id (Sunday=0, Monday=1, Tuesday=2 etc...).</span>
+<span class="sd">        This WILL throw an AssertError if the day range is invalid.</span>
+<span class="sd">        :param day: The day id to retrieve.</span>
+<span class="sd">        :return: The LocationSchedule for the given day.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">day</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schedules</span><span class="p">),</span> <span class="s2">&quot;Invalid day range&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedules</span><span class="p">[</span><span class="n">day</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Location.get_schedules"><a class="viewcode-back" href="../cbg.html#cbg.location.Location.get_schedules">[docs]</a>    <span class="k">def</span> <span class="nf">get_schedules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">LocationSchedule</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets all the LocationSchedules for this location.</span>
+<span class="sd">        :return: A List of LocationSchedules.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedules</span></div>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Location[id=</span><span class="si">{}</span><span class="s2">,name=</span><span class="si">{}</span><span class="s2">,department=</span><span class="si">{}</span><span class="s2">]&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">department</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CBG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, PACE Group 6.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

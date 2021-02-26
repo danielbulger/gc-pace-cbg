@@ -1,0 +1,186 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>cbg.sim package &#8212; CBG  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="cbg-sim-package">
+<h1>cbg.sim package<a class="headerlink" href="#cbg-sim-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-cbg.sim.activity_change_sim">
+<span id="cbg-sim-activity-change-sim-module"></span><h2>cbg.sim.activity_change_sim module<a class="headerlink" href="#module-cbg.sim.activity_change_sim" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="cbg.sim.activity_change_sim.ActivityChangeSimulation">
+<em class="property">class </em><code class="descclassname">cbg.sim.activity_change_sim.</code><code class="descname">ActivityChangeSimulation</code><span class="sig-paren">(</span><em>start_date: str</em>, <em>end_date: str</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/activity_change_sim.html#ActivityChangeSimulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.activity_change_sim.ActivityChangeSimulation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#cbg.sim.simulation.Simulation" title="cbg.sim.simulation.Simulation"><code class="xref py py-class docutils literal notranslate"><span class="pre">cbg.sim.simulation.Simulation</span></code></a></p>
+<dl class="method">
+<dt id="cbg.sim.activity_change_sim.ActivityChangeSimulation.chart_activity_changes">
+<code class="descname">chart_activity_changes</code><span class="sig-paren">(</span><em>changes: List</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/activity_change_sim.html#ActivityChangeSimulation.chart_activity_changes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.activity_change_sim.ActivityChangeSimulation.chart_activity_changes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="cbg.sim.activity_change_sim.ActivityChangeSimulation.run_sim">
+<code class="descname">run_sim</code><span class="sig-paren">(</span><em>schedules: List[List[Dict[str, Any]]]</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/activity_change_sim.html#ActivityChangeSimulation.run_sim"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.activity_change_sim.ActivityChangeSimulation.run_sim" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prototype simulation that will run on the list of schedules.
+:param schedules: The schedules to simulate.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="cbg.sim.activity_change_sim.ActivityChangeSimulation.simulate_activity_change">
+<code class="descname">simulate_activity_change</code><span class="sig-paren">(</span><em>schedules: List[List[Dict[str, Any]]]</em><span class="sig-paren">)</span> &#x2192; List<a class="reference internal" href="cbg/sim/activity_change_sim.html#ActivityChangeSimulation.simulate_activity_change"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.activity_change_sim.ActivityChangeSimulation.simulate_activity_change" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-cbg.sim.delay_sim">
+<span id="cbg-sim-delay-sim-module"></span><h2>cbg.sim.delay_sim module<a class="headerlink" href="#module-cbg.sim.delay_sim" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="cbg.sim.delay_sim.DelaySimulation">
+<em class="property">class </em><code class="descclassname">cbg.sim.delay_sim.</code><code class="descname">DelaySimulation</code><span class="sig-paren">(</span><em>start_date: str</em>, <em>end_date: str</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/delay_sim.html#DelaySimulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.delay_sim.DelaySimulation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#cbg.sim.simulation.Simulation" title="cbg.sim.simulation.Simulation"><code class="xref py py-class docutils literal notranslate"><span class="pre">cbg.sim.simulation.Simulation</span></code></a></p>
+<dl class="method">
+<dt id="cbg.sim.delay_sim.DelaySimulation.chart_delay_times">
+<code class="descname">chart_delay_times</code><span class="sig-paren">(</span><em>delays</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/delay_sim.html#DelaySimulation.chart_delay_times"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.delay_sim.DelaySimulation.chart_delay_times" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="cbg.sim.delay_sim.DelaySimulation.run_sim">
+<code class="descname">run_sim</code><span class="sig-paren">(</span><em>schedules: List[List[Dict[str, Any]]]</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/delay_sim.html#DelaySimulation.run_sim"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.delay_sim.DelaySimulation.run_sim" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prototype simulation that will run on the list of schedules.
+:param schedules: The schedules to simulate.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="cbg.sim.delay_sim.DelaySimulation.simulate_delay_times">
+<code class="descname">simulate_delay_times</code><span class="sig-paren">(</span><em>schedules: List[List[Dict[str, Any]]]</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/delay_sim.html#DelaySimulation.simulate_delay_times"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.delay_sim.DelaySimulation.simulate_delay_times" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-cbg.sim.simulation">
+<span id="cbg-sim-simulation-module"></span><h2>cbg.sim.simulation module<a class="headerlink" href="#module-cbg.sim.simulation" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="cbg.sim.simulation.Simulation">
+<em class="property">class </em><code class="descclassname">cbg.sim.simulation.</code><code class="descname">Simulation</code><span class="sig-paren">(</span><em>start_date: str</em>, <em>end_date: str</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/sim/simulation.html#Simulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.simulation.Simulation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="cbg.sim.simulation.Simulation.run_sim">
+<code class="descname">run_sim</code><span class="sig-paren">(</span><em>schedules: List[List[Dict[str, Any]]]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="cbg/sim/simulation.html#Simulation.run_sim"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.sim.simulation.Simulation.run_sim" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prototype simulation that will run on the list of schedules.
+:param schedules: The schedules to simulate.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-cbg.sim">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-cbg.sim" title="Permalink to this headline">¶</a></h2>
+<p>sim package should contain any simulations on generated schedules that need to be done to validate performance increases.</p>
+<p>Anything that can assist in determining that our generated schedules are actually an improvement should be in here.</p>
+<dl class="attribute">
+<dt id="cbg.sim.SimulationList">
+<code class="descclassname">cbg.sim.</code><code class="descname">SimulationList</code><a class="headerlink" href="#cbg.sim.SimulationList" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.List</span></code></p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">CBG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, PACE Group 6.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/_modules/cbg.sim.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

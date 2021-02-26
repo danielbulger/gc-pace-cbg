@@ -1,0 +1,187 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>cbg.patients &#8212; CBG  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for cbg.patients</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">from</span> <span class="nn">cbg.trends</span> <span class="k">import</span> <span class="n">patient_history</span><span class="p">,</span> <span class="n">global_history</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">A patient is simply a dictionary of properties.</span>
+<span class="sd">Simply because patient data is only ever used as a argument and never needs to modify its own state.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="n">Patient</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="sort_patients"><a class="viewcode-back" href="../cbg.html#cbg.patients.sort_patients">[docs]</a><span class="k">def</span> <span class="nf">sort_patients</span><span class="p">(</span><span class="n">patients</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Patient</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sort Patients by how many available locations they have in ASCENDING order.</span>
+<span class="sd">    This is to ensure patients that have fewer options are processed first and as such limits the risk that a machine</span>
+<span class="sd">    is not filled with patients who have much more options available to them.</span>
+<span class="sd">    :param patients: The list of Patients that will be sorted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">patients</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;available_locations&#39;</span><span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="add_patient_preferences"><a class="viewcode-back" href="../cbg.html#cbg.patients.add_patient_preferences">[docs]</a><span class="k">def</span> <span class="nf">add_patient_preferences</span><span class="p">(</span><span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">,</span> <span class="n">preferences</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+    <span class="k">if</span> <span class="n">patient</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">preferences</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="n">patient</span><span class="p">[</span><span class="s1">&#39;preferences&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">preferences</span><span class="p">[</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]]</span></div>
+
+
+<div class="viewcode-block" id="add_estimated_treatment_time"><a class="viewcode-back" href="../cbg.html#cbg.patients.add_estimated_treatment_time">[docs]</a><span class="k">def</span> <span class="nf">add_estimated_treatment_time</span><span class="p">(</span><span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Adds an `estimated_time` key to the patient dictionary that contains the predicted duration of the next treatment.</span>
+<span class="sd">    :param patient: The patient to predict the duration for.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">predict</span> <span class="o">=</span> <span class="n">patient_history</span><span class="o">.</span><span class="n">predict_next_duration</span><span class="p">(</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span> <span class="n">patient</span><span class="p">[</span><span class="s1">&#39;activity&#39;</span><span class="p">])</span>
+        <span class="c1"># If the predicted score is not a multiple of 5 minutes, round to the next one.</span>
+        <span class="k">if</span> <span class="n">predict</span> <span class="o">%</span> <span class="mi">5</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">predict</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">predict</span> <span class="o">/</span> <span class="mi">5</span><span class="p">))</span> <span class="o">*</span> <span class="mi">5</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Error while predicting treatment duration for </span><span class="si">{patient}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">predict</span> <span class="o">=</span> <span class="mi">15</span>
+
+    <span class="n">patient</span><span class="p">[</span><span class="s1">&#39;estimated_time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">predict</span></div>
+
+
+<div class="viewcode-block" id="add_patient_treatment_locations"><a class="viewcode-back" href="../cbg.html#cbg.patients.add_patient_treatment_locations">[docs]</a><span class="k">def</span> <span class="nf">add_patient_treatment_locations</span><span class="p">(</span><span class="n">patient</span><span class="p">:</span> <span class="n">Patient</span><span class="p">,</span> <span class="n">departments</span><span class="p">,</span> <span class="n">locations</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Adds an `available_locations` key to the patient dictionary that contains a list of all the locations that the</span>
+<span class="sd">    patient can be treated at, sorted in ascending order by distance.</span>
+<span class="sd">    :param patient: The patient to assign to.</span>
+<span class="sd">    :param departments: A list of all the departments. Used to calculate the distance between the patient&#39;s postcode</span>
+<span class="sd">    and the department.</span>
+<span class="sd">    :param locations: A list of all the locations. Used to find which locations are able to treat the given patient.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Patient postcode wasn&#39;t found, need to fallback on default.</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">str</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">closest</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">departments</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;No postcode for patient </span><span class="si">{patient}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">closest</span> <span class="o">=</span> <span class="n">global_history</span><span class="o">.</span><span class="n">get_closest_dept</span><span class="p">(</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Error retrieving closest departments for </span><span class="si">{patient}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">return</span>
+
+    <span class="k">if</span> <span class="n">closest</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># TODO Need to provide some sort of feedback that this patient wasn&#39;t able to be allocated to a machine.</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;No locations available for Patient[</span><span class="si">{patient}</span><span class="s1">]&#39;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">patient</span><span class="p">[</span><span class="s1">&#39;available_locations&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">department</span> <span class="ow">in</span> <span class="n">closest</span><span class="p">:</span>
+        <span class="n">department_locations</span> <span class="o">=</span> <span class="n">departments</span><span class="p">[</span><span class="n">department</span><span class="p">][</span><span class="s1">&#39;locations&#39;</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">location_id</span> <span class="ow">in</span> <span class="n">department_locations</span><span class="p">:</span>
+            <span class="n">location</span> <span class="o">=</span> <span class="n">locations</span><span class="p">[</span><span class="n">location_id</span><span class="p">]</span>
+
+            <span class="c1"># Patient can be treated at this location.</span>
+            <span class="k">if</span> <span class="n">location</span><span class="o">.</span><span class="n">is_allowed</span><span class="p">(</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;activity&#39;</span><span class="p">]):</span>
+                <span class="n">patient</span><span class="p">[</span><span class="s1">&#39;available_locations&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">patient</span><span class="p">[</span><span class="s1">&#39;available_locations&#39;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CBG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, PACE Group 6.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

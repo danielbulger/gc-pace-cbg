@@ -1,0 +1,141 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>cbg.output package &#8212; CBG  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="cbg-output-package">
+<h1>cbg.output package<a class="headerlink" href="#cbg-output-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-cbg.output.schedule_output">
+<span id="cbg-output-schedule-output-module"></span><h2>cbg.output.schedule_output module<a class="headerlink" href="#module-cbg.output.schedule_output" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="cbg.output.schedule_output.CSVScheduleOutput">
+<em class="property">class </em><code class="descclassname">cbg.output.schedule_output.</code><code class="descname">CSVScheduleOutput</code><span class="sig-paren">(</span><em>activities</em><span class="sig-paren">)</span><a class="reference internal" href="cbg/output/schedule_output.html#CSVScheduleOutput"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.output.schedule_output.CSVScheduleOutput" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#cbg.output.schedule_output.ScheduleOutput" title="cbg.output.schedule_output.ScheduleOutput"><code class="xref py py-class docutils literal notranslate"><span class="pre">cbg.output.schedule_output.ScheduleOutput</span></code></a></p>
+<dl class="method">
+<dt id="cbg.output.schedule_output.CSVScheduleOutput.write_schedule">
+<code class="descname">write_schedule</code><span class="sig-paren">(</span><em>schedule: cbg.location.LocationSchedule, time_slots: List[Dict[str, Any]]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="cbg/output/schedule_output.html#CSVScheduleOutput.write_schedule"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.output.schedule_output.CSVScheduleOutput.write_schedule" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prototype method for writing a schedule to some location in some format.
+:param schedule: The LocationSchedule that is been written.
+:param time_slots: The actual schedule data.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="cbg.output.schedule_output.ScheduleOutput">
+<em class="property">class </em><code class="descclassname">cbg.output.schedule_output.</code><code class="descname">ScheduleOutput</code><a class="reference internal" href="cbg/output/schedule_output.html#ScheduleOutput"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.output.schedule_output.ScheduleOutput" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="cbg.output.schedule_output.ScheduleOutput.write_schedule">
+<code class="descname">write_schedule</code><span class="sig-paren">(</span><em>schedule: cbg.location.LocationSchedule, time_slots: List[Dict[str, Any]]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="cbg/output/schedule_output.html#ScheduleOutput.write_schedule"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cbg.output.schedule_output.ScheduleOutput.write_schedule" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prototype method for writing a schedule to some location in some format.
+:param schedule: The LocationSchedule that is been written.
+:param time_slots: The actual schedule data.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-cbg.output">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-cbg.output" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">CBG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, PACE Group 6.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/_modules/cbg.output.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

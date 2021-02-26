@@ -1,0 +1,13 @@
+/sql/gcpace.sqlite3
+
+/.ipynb_checkpoints/
+schedule_v*.csv
+# Don't commit generated schedules.
+schedules/*/*.csv
+*.log
+
+__pycache__/
+*.py[cod]
+/venv/
+/.idea/
+/docgen/_build/
